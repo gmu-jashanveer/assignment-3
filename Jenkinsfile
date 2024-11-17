@@ -25,14 +25,6 @@ pipeline {
             }
         }
 
-        stage('Authenticate with Docker Hub') {
-    steps {
-        withCredentials([string(credentialsId: "${DOCKER_CREDENTIALS_ID}", variable: 'DOCKER_PASSWORD')]) {
-            sh "echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USERNAME} --password-stdin"
-        }
-    }
-}
-
         stage('Pull Docker Images') {
             parallel {
                 stage('Pull Backend Docker Image') {
