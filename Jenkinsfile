@@ -2,14 +2,13 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_USERNAME = 'jashanveer'  // Docker Hub username
-        BACKEND_DOCKER_IMAGE = 'jashanveer/backend-linux'  // Backend Docker image name
-        FRONTEND_DOCKER_IMAGE = 'jashanveer/frontend-121-linux'  // Frontend Docker image name
-        DOCKER_TAG = 'latest'  // Docker image tag
-        BACKEND_DEPLOYMENT_YAML = 'backend-deployment.yaml'  // Backend deployment YAML
-        BACKEND_SERVICE_YAML = 'backend-service.yaml'  // Backend service YAML
-        FRONTEND_DEPLOYMENT_YAML = 'frontend-deployment.yaml'  // Frontend deployment YAML
-        FRONTEND_SERVICE_YAML = 'frontend-service.yaml'  // Frontend service YAML
+        BACKEND_DOCKER_IMAGE = 'jashanveer/backend-linux'
+        FRONTEND_DOCKER_IMAGE = 'jashanveer/frontend-121-linux'
+        DOCKER_TAG = 'latest'
+        BACKEND_DEPLOYMENT_YAML = 'backend-deployment.yaml'
+        BACKEND_SERVICE_YAML = 'backend-service.yaml'
+        FRONTEND_DEPLOYMENT_YAML = 'frontend-deployment.yaml'
+        FRONTEND_SERVICE_YAML = 'frontend-service.yaml'
     }
 
     stages {
@@ -19,33 +18,30 @@ pipeline {
             }
         }
 
-        stage('Pull Docker Images') {
-            parallel {
-                stage('Pull Backend Docker Image') {
-                    steps {
-                        sh "docker pull ${BACKEND_DOCKER_IMAGE}:${DOCKER_TAG}"
-                    }
-                }
-                stage('Pull Frontend Docker Image') {
-                    steps {
-                        sh "docker pull ${FRONTEND_DOCKER_IMAGE}:${DOCKER_TAG}"
-                    }
-                }
-            }
-        }
-
         stage('Deploy to Kubernetes') {
             parallel {
                 stage('Deploy Backend') {
                     steps {
-                        sh "kubectl apply -f ${BACKEND_DEPLOYMENT_YAML}"
-                        sh "kubectl apply -f ${BACKEND_SERVICE_YAML}"
+                        script {
+                            // Update backend deployment YAML to use the existing image
+                            sh """
+                            kubectl set image -f ${BACKEND_DEPLOYMENT_YAML} backend=${BACKEND_DOCKER_IMAGE}:${DOCKER_TAG}
+                            kubectl apply -f ${BACKEND_DEPLOYMENT_YAML}
+                            kubectl apply -f ${BACKEND_SERVICE_YAML}
+                            """
+                        }
                     }
                 }
                 stage('Deploy Frontend') {
                     steps {
-                        sh "kubectl apply -f ${FRONTEND_DEPLOYMENT_YAML}"
-                        sh "kubectl apply -f ${FRONTEND_SERVICE_YAML}"
+                        script {
+                            // Update frontend deployment YAML to use the existing image
+                            sh """
+                            kubectl set image -f ${FRONTEND_DEPLOYMENT_YAML} frontend=${FRONTEND_DOCKER_IMAGE}:${DOCKER_TAG}
+                            kubectl apply -f ${FRONTEND_DEPLOYMENT_YAML}
+                            kubectl apply -f ${FRONTEND_SERVICE_YAML}
+                            """
+                        }
                     }
                 }
             }
@@ -54,10 +50,10 @@ pipeline {
 
     post {
         success {
-            echo 'All deployments and services successfully deployed!'
+            echo 'Deployment completed successfully using existing images!'
         }
         failure {
-            echo 'Deployment failed. Check the logs for details.'
+            echo 'Deployment failed. Check logs for details.'
         }
     }
 }
