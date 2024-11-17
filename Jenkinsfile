@@ -15,6 +15,7 @@ pipeline {
         BACKEND_SERVICE_YAML = 'backend-service.yaml'
         FRONTEND_DEPLOYMENT_YAML = 'frontend-deployment.yaml'
         FRONTEND_SERVICE_YAML = 'frontend-service.yaml'
+        DOCKER_USERNAME = 'jashanveer'
     }
 
     stages {
@@ -25,12 +26,12 @@ pipeline {
         }
 
         stage('Authenticate with Docker Hub') {
-            steps {
-                withCredentials([usernamePassword(credentialsId: "${DOCKER_CREDENTIALS_ID}", usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
-                    sh "echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USERNAME} --password-stdin"
-                }
-            }
+    steps {
+        withCredentials([string(credentialsId: "${DOCKER_CREDENTIALS_ID}", variable: 'DOCKER_PASSWORD')]) {
+            sh "echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USERNAME} --password-stdin"
         }
+    }
+}
 
         stage('Pull Docker Images') {
             parallel {
