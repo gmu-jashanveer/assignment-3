@@ -1,7 +1,13 @@
+// Dhruvi Pruthvisinh Rathod - G01465151
+// Jashanveer Singh - G01477180
+// Namita Chougule – G01473740
+
 pipeline {
     agent any
 
     environment {
+        DOCKER_CREDENTIALS_ID = 'docker_cred'  // Docker Hub credentials ID in Jenkins
+        KUBECONFIG_CREDENTIALS_ID = 'kubeconfig'  // Kubeconfig secret file ID in Jenkins
         BACKEND_DOCKER_IMAGE = 'jashanveer/backend-linux'
         FRONTEND_DOCKER_IMAGE = 'jashanveer/frontend-121-linux'
         DOCKER_TAG = 'latest'
@@ -18,30 +24,41 @@ pipeline {
             }
         }
 
-        stage('Deploy to Kubernetes') {
+        stage('Authenticate with Docker Hub') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: "${DOCKER_CREDENTIALS_ID}", usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
+                    sh "echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USERNAME} --password-stdin"
+                }
+            }
+        }
+
+        stage('Pull Docker Images') {
             parallel {
-                stage('Deploy Backend') {
+                stage('Pull Backend Docker Image') {
                     steps {
-                        script {
-                            // Update backend deployment YAML to use the existing image
-                            sh """
-                            kubectl set image -f ${BACKEND_DEPLOYMENT_YAML} backend=${BACKEND_DOCKER_IMAGE}:${DOCKER_TAG}
-                            kubectl apply -f ${BACKEND_DEPLOYMENT_YAML}
-                            kubectl apply -f ${BACKEND_SERVICE_YAML}
-                            """
-                        }
+                        sh "docker pull ${BACKEND_DOCKER_IMAGE}:${DOCKER_TAG}"
                     }
                 }
-                stage('Deploy Frontend') {
+                stage('Pull Frontend Docker Image') {
                     steps {
-                        script {
-                            // Update frontend deployment YAML to use the existing image
-                            sh """
-                            kubectl set image -f ${FRONTEND_DEPLOYMENT_YAML} frontend=${FRONTEND_DOCKER_IMAGE}:${DOCKER_TAG}
-                            kubectl apply -f ${FRONTEND_DEPLOYMENT_YAML}
-                            kubectl apply -f ${FRONTEND_SERVICE_YAML}
-                            """
-                        }
+                        sh "docker pull ${FRONTEND_DOCKER_IMAGE}:${DOCKER_TAG}"
+                    }
+                }
+            }
+        }
+
+        stage('Deploy to Kubernetes') {
+            steps {
+                withCredentials([file(credentialsId: "${KUBECONFIG_CREDENTIALS_ID}", variable: 'KUBECONFIG')]) {
+                    script {
+                        // Ensure KUBECONFIG environment variable is set
+                        sh '''
+                        export KUBECONFIG=${KUBECONFIG}
+                        kubectl apply -f ${BACKEND_DEPLOYMENT_YAML}
+                        kubectl apply -f ${BACKEND_SERVICE_YAML}
+                        kubectl apply -f ${FRONTEND_DEPLOYMENT_YAML}
+                        kubectl apply -f ${FRONTEND_SERVICE_YAML}
+                        '''
                     }
                 }
             }
@@ -50,10 +67,10 @@ pipeline {
 
     post {
         success {
-            echo 'Deployment completed successfully using existing images!'
+            echo 'Deployment completed successfully!'
         }
         failure {
-            echo 'Deployment failed. Check logs for details.'
+            echo 'Deployment failed. Please check the logs.'
         }
     }
 }
